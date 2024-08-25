@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>כותרות RSS בזמן אמת</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@900&display=swap" rel="stylesheet">
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            font-family: 'Rubik', sans-serif;
+        }
+        #headline-container {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            background-size: cover;
+            background-position: center;
+            transition: background-image 1s ease-in-out;
+        }
+        #headline {
+            font-size: 5vw;
+            font-weight: 900;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+            padding: 20px;
+            background-color: rgba(0,0,0,0.7);
+            width: 80%;
+        }
+        #date, #source {
+            font-size: 2vw;
+            color: white;
+            margin-top: 20px;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+        }
+        #source {
+            font-size: 1.5vw;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="headline-container">
+        <h1 id="headline"></h1>
+        <p id="date"></p>
+        <p id="source"></p>
+    </div>
+
+    <script>
+        const RSS_URLS = [
+            'http://www.ynet.co.il/Integration/StoryRss2.xml',
+            'http://www.haaretz.co.il/cmlink/1.1470869',
+            'https://rcs.mako.co.il/rss/31750a2610f26110VgnVCM1000005201000aRCRD.xml',
+            'https://rss.walla.co.il/feed/1?type=main',
+            'https://www.inn.co.il/Rss.aspx?act=0.1',
+            'https://www.maariv.co.il/Rss/RssChadashot',
+            'https://www.calcalist.co.il/GeneralRSS/0,16335,L-8,00.xml',
+            'http://www.themarker.com/cmlink/1.144',
+            'https://www.globes.co.il/webservice/rss/rssfeeder.asmx/FeederNode?iID=2'
+        ];
+
+        let headlines = [];
+        let currentIndex = 0;
+
+        function fetchRSS() {
+            headlines = [];
+            const promises = RSS_URLS.map(url => 
+                $.ajax({
+                    url: `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}`,
+                    dataType: 'json'
+                })
+            );
+
+            Promise.all(promises)
+                .then(results => {
+                    const now = new Date();
+                    results.forEach((data, index) => {
+                        if (data.status === 'ok') {
+                            data.items.forEach(item => {
+                                const pubDate = new Date(item.pubDate);
+                                if (now - pubDate <= 7200000) { // 2 hours in milliseconds
+                                    headlines.push({
+                                        title: item.title,
+                                        date: pubDate,
+                                        image: item.enclosure ? item.enclosure.link : '',
+                                        source: data.feed.title
+                                    });
+                                }
+                            });
+                        }
+                    });
+                    if (headlines.length > 0) {
+                        displayHeadline();
+                    }
+                })
+                .catch(error => console.error('Error fetching RSS:', error));
+        }
+
+        function displayHeadline() {
+            if (headlines.length === 0) return;
+
+            const item = headlines[currentIndex];
+            $('#headline').text(item.title);
+            $('#date').text(item.date.toLocaleString('he-IL'));
+            $('#source').text(item.source);
+            $('#headline-container').css('background-image', `url('${item.image}')`);
+
+            currentIndex = (currentIndex + 1) % headlines.length;
+        }
+
+        function updateHeadlines() {
+            fetchRSS();
+            setInterval(fetchRSS, 60000); // Update every minute
+        }
+
+        $(document).ready(() => {
+            updateHeadlines();
+            setInterval(displayHeadline, 5000); // Change headline every 5 seconds
+        });
+    </script>
+</body>
+</html>
