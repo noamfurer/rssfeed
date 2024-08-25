@@ -53,7 +53,7 @@
     </div>
 
     <script>
-                const RSS_URLS = [
+        const RSS_URLS = [
             'http://www.ynet.co.il/Integration/StoryRss2.xml',
             'http://www.haaretz.co.il/cmlink/1.1470869',
             'https://rcs.mako.co.il/rss/31750a2610f26110VgnVCM1000005201000aRCRD.xml',
@@ -66,10 +66,8 @@
             'https://www.ha-makom.co.il/feed/',
             'https://www.haaretz.co.il/srv/htz---all-articles',
             'https://rss.nytimes.com/services/xml/rss/nyt/MiddleEast.xml',
-            'http://rss.nrg.co.il/news',
             'https://rss.jpost.com/rss/rssfeedsfrontpage.aspx'
         ];
-
 
         let headlines = [];
         let currentIndex = 0;
@@ -85,22 +83,25 @@
 
             Promise.all(promises)
                 .then(results => {
-                    const now = new Date();
                     results.forEach((data, index) => {
                         if (data.status === 'ok') {
                             data.items.forEach(item => {
-                                const pubDate = new Date(item.pubDate);
-                                if (now - pubDate <= 7200000) { // 2 hours in milliseconds
-                                    headlines.push({
-                                        title: item.title,
-                                        date: pubDate,
-                                        image: item.enclosure ? item.enclosure.link : '',
-                                        source: data.feed.title
-                                    });
-                                }
+                                headlines.push({
+                                    title: item.title,
+                                    date: new Date(item.pubDate),
+                                    image: item.enclosure ? item.enclosure.link : '',
+                                    source: data.feed.title
+                                });
                             });
                         }
                     });
+                    
+                    // Sort headlines by date, newest first
+                    headlines.sort((a, b) => b.date - a.date);
+                    
+                    // Keep only the 20 most recent items
+                    headlines = headlines.slice(0, 20);
+                    
                     if (headlines.length > 0) {
                         displayHeadline();
                     }
