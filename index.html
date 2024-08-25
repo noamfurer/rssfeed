@@ -89,7 +89,7 @@
                         if (data.status === 'ok') {
                             data.items.forEach(item => {
                                 const pubDate = new Date(item.pubDate);
-                                if (now - pubDate <= 14000000) { // 4 hours in milliseconds
+                                if (now - pubDate <= 7200000) { // 2 hours in milliseconds
                                     headlines.push({
                                         title: item.title,
                                         date: pubDate,
@@ -121,7 +121,7 @@
 
         function updateHeadlines() {
             fetchRSS();
-            setInterval(fetchRSS, 30000); // Update every 0.5 minute
+            setInterval(fetchRSS, 60000); // Update every minute
         }
 
         $(document).ready(() => {
