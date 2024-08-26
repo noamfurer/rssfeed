@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>כותרות RSS בזמן אמת</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <title>לוח מחוונים חדשות</title>
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@900&display=swap" rel="stylesheet">
     <style>
         body, html {
@@ -12,123 +11,157 @@
             padding: 0;
             height: 100%;
             font-family: 'Rubik', sans-serif;
+            overflow: hidden;
         }
-        #headline-container {
+        .container {
+            display: flex;
+            height: 100vh;
+            flex-direction: row-reverse; /* הפוך את הכיוון */
+        }
+        .left-side, .right-side {
+            flex: 1;
+            overflow: hidden;
+        }
+        .right-side iframe {
+            position: absolute;
+            top: 1;
+            left: 1; /* שינוי מ-left ל-right */
+            width: 50%;
+            height: 100%;
+            border: none;
+        }
+        .news-item {
+            position: absolute;
+            top: 1;
+            right: 1; /* שינוי מ-left ל-right */
+            width: 50%;
             height: 100%;
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
             text-align: center;
+            opacity: 0;
+            transition: opacity 0.5s ease-in-out;
             background-size: cover;
             background-position: center;
-            transition: background-image 1s ease-in-out;
         }
-        #headline {
-            font-size: 5vw;
-            font-weight: 900;
+        .news-item.active {
+            opacity: 1;
+        }
+        .title {
+            font-size: 3vw;
             color: white;
             text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
             padding: 20px;
-            background-color: rgba(0,0,0,0.7);
+            background-color: rgba(0,0,0,0.5);
+            margin-bottom: 10px;
             width: 80%;
         }
-        #date, #source {
-            font-size: 2vw;
-            color: white;
-            margin-top: 20px;
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
-        }
-        #source {
+        .date, .source {
             font-size: 1.5vw;
-            margin-top: 10px;
+            color: white;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
         }
     </style>
 </head>
 <body>
-    <div id="headline-container">
-        <h1 id="headline"></h1>
-        <p id="date"></p>
-        <p id="source"></p>
+    <div class="container">
+        <div class="right-side">
+            <iframe src="https://trends.google.com/trends/hottrends/visualize?pn=p6&nrow=2&ncol=3" frameborder="0"></iframe>
+        </div>
+        <div class="left-side" id="newsContainer"></div>
     </div>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.21.1/axios.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment-timezone/0.5.33/moment-timezone-with-data.min.js"></script>
     <script>
-        const RSS_URLS = [
-            'http://www.ynet.co.il/Integration/StoryRss2.xml',
-            'http://www.haaretz.co.il/cmlink/1.1470869',
-            'https://rcs.mako.co.il/rss/31750a2610f26110VgnVCM1000005201000aRCRD.xml',
-            'https://rss.walla.co.il/feed/1?type=main',
-            'https://www.inn.co.il/Rss.aspx?act=0.1',
-            'https://www.maariv.co.il/Rss/RssChadashot',
-            'https://www.calcalist.co.il/GeneralRSS/0,16335,L-8,00.xml',
-            'http://www.themarker.com/cmlink/1.144',
-            'https://www.globes.co.il/webservice/rss/rssfeeder.asmx/FeederNode?iID=2',
-            'https://www.ha-makom.co.il/feed/',
-            'https://www.haaretz.co.il/srv/htz---all-articles',
-            'https://rss.nytimes.com/services/xml/rss/nyt/MiddleEast.xml',
-            'https://rss.jpost.com/rss/rssfeedsfrontpage.aspx'
+        const rssFeeds = [
+            "http://www.ynet.co.il/Integration/StoryRss2.xml",
+            "http://www.haaretz.co.il/cmlink/1.1470869",
+            "https://rcs.mako.co.il/rss/31750a2610f26110VgnVCM1000005201000aRCRD.xml",
+            "https://rss.walla.co.il/feed/1?type=main",
+            "https://www.inn.co.il/Rss.aspx?act=0.1",
+            "https://www.maariv.co.il/Rss/RssChadashot",
+            "https://www.calcalist.co.il/GeneralRSS/0,16335,L-8,00.xml",
+            "http://www.themarker.com/cmlink/1.144",
+            "https://www.globes.co.il/webservice/rss/rssfeeder.asmx/FeederNode?iID=2",
+            "https://www.ha-makom.co.il/feed/",
+            "https://www.haaretz.co.il/srv/htz---all-articles",
+            "https://rss.nytimes.com/services/xml/rss/nyt/MiddleEast.xml",
+            "https://rss.jpost.com/rss/rssfeedsfrontpage.aspx"
         ];
 
-        let headlines = [];
-        let currentIndex = 0;
+        let newsItems = [];
+        let currentItemIndex = 0;
 
-        function fetchRSS() {
-            headlines = [];
-            const promises = RSS_URLS.map(url => 
-                $.ajax({
-                    url: `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}`,
-                    dataType: 'json'
-                })
-            );
+        async function fetchRssFeed(url) {
+            try {
+                const response = await axios.get(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
+                const parser = new DOMParser();
+                const xmlDoc = parser.parseFromString(response.data.contents, "text/xml");
+                const items = xmlDoc.querySelectorAll("item");
+                const source = xmlDoc.querySelector("channel > title")?.textContent || url;
 
-            Promise.all(promises)
-                .then(results => {
-                    results.forEach((data, index) => {
-                        if (data.status === 'ok') {
-                            data.items.forEach(item => {
-                                headlines.push({
-                                    title: item.title,
-                                    date: new Date(item.pubDate),
-                                    image: item.enclosure ? item.enclosure.link : '',
-                                    source: data.feed.title
-                                });
-                            });
-                        }
-                    });
-                    
-                    // Sort headlines by date, newest first
-                    headlines.sort((a, b) => b.date - a.date);
-                    
-                    // Keep only the 20 most recent items
-                    headlines = headlines.slice(0, 20);
-                    
-                    if (headlines.length > 0) {
-                        displayHeadline();
-                    }
-                })
-                .catch(error => console.error('Error fetching RSS:', error));
+                return Array.from(items).slice(0, 20).map(item => ({
+                    title: item.querySelector("title")?.textContent,
+                    pubDate: item.querySelector("pubDate")?.textContent,
+                    image: item.querySelector("enclosure")?.getAttribute("url") || "",
+                    source: source
+                }));
+            } catch (error) {
+                console.error(`Error fetching RSS feed from ${url}:`, error);
+                return [];
+            }
         }
 
-        function displayHeadline() {
-            if (headlines.length === 0) return;
-
-            const item = headlines[currentIndex];
-            $('#headline').text(item.title);
-            $('#date').text(item.date.toLocaleString('he-IL'));
-            $('#source').text(item.source);
-            $('#headline-container').css('background-image', `url('${item.image}')`);
-
-            currentIndex = (currentIndex + 1) % headlines.length;
+        async function fetchAllFeeds() {
+            const allItems = await Promise.all(rssFeeds.map(fetchRssFeed));
+            newsItems = allItems.flat().sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate)).slice(0, 20);
+            displayNewsItem();
         }
 
-        function updateHeadlines() {
-            fetchRSS();
-            setInterval(fetchRSS, 60000); // Update every minute
+        function displayNewsItem() {
+            const item = newsItems[currentItemIndex];
+            const newsContainer = document.getElementById("newsContainer");
+            
+            const newsItemElement = document.createElement("div");
+            newsItemElement.className = "news-item";
+            newsItemElement.style.backgroundImage = `url('${item.image}')`;
+
+            const titleElement = document.createElement("div");
+            titleElement.className = "title";
+            titleElement.textContent = item.title;
+
+            const dateElement = document.createElement("div");
+            dateElement.className = "date";
+            dateElement.textContent = moment(item.pubDate).tz("Asia/Jerusalem").format("DD/MM/YYYY");
+
+            const sourceElement = document.createElement("div");
+            sourceElement.className = "source";
+            sourceElement.textContent = item.source;
+
+            newsItemElement.appendChild(titleElement);
+            newsItemElement.appendChild(dateElement);
+            newsItemElement.appendChild(sourceElement);
+
+            newsContainer.innerHTML = "";
+            newsContainer.appendChild(newsItemElement);
+
+            setTimeout(() => newsItemElement.classList.add("active"), 100);
+
+            currentItemIndex = (currentItemIndex + 1) % newsItems.length;
         }
 
-        $(document).ready(() => {
-            updateHeadlines();
-            setInterval(displayHeadline, 5000); // Change headline every 5 seconds
+        function rotateNewsItems() {
+            displayNewsItem();
+            setTimeout(rotateNewsItems, 5000);
+        }
+
+        fetchAllFeeds().then(() => {
+            rotateNewsItems();
+            setInterval(fetchAllFeeds, 300000); // עדכון כל 5 דקות
         });
     </script>
 </body>
