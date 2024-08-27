@@ -164,7 +164,7 @@
         function updateNews() {
             Promise.all(RSS_SOURCES.map(fetchRSS))
                 .then(results => {
-                    allNews = results.flat().sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate)).slice(0, 40);
+                    allNews = results.flat().sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate)).slice(1, 40);
                     displayNews(0);
                 });
         }
