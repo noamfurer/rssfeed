@@ -120,7 +120,7 @@
             'https://rss.jpost.com/rss/rssfeedsfrontpage.aspx'
         ];
 
-        const TICKER_RSS = 'https://rotter.net/rss/rotternews.xml';
+        const TICKER_RSS = 'https://ch2rss.fflow.net/N12chat';
 
         let allNews = [];
         let tickerNews = [];
@@ -156,8 +156,8 @@
         }
 
         function displayTicker() {
-            const tickerContent = tickerNews.map(item => item.title).join(' | רוטר: ');
-            document.getElementById('ticker-content').textContent = tickerContent + ' | רוטר: ' + tickerContent;
+            const tickerContent = tickerNews.map(item => item.title).join(' | ');
+            document.getElementById('ticker-content').textContent = tickerContent + ' | ' + tickerContent;
         }
 
         let currentIndex = 0;
