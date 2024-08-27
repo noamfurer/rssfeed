@@ -65,7 +65,7 @@
         #ticker-container {
             display: inline-block;
             white-space: nowrap;
-            animation: ticker 120s linear infinite;
+            animation: ticker 180s linear infinite;
         }
         #ticker-container:hover {
             animation-play-state: paused;
@@ -73,12 +73,34 @@
         #ticker-content {
             display: inline-block;
             padding-left: 100%;
-            font-size: 24px;
+            font-size: 20px;
         }
         @keyframes ticker {
             0% { transform: translate3d(50%, 0, 0); }
             100% { transform: translate3d(0, 0, 0); }
         }
+        .ticker-item {
+            margin-right: 50px;
+        }
+        .ticker-source {
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        .ticker-time {
+            color: #666;
+            margin-right: 10px;
+        }
+
+.fixed-image {
+  position: fixed;
+  top: 0.5%;
+  left: 0.5%;
+  width: 7%; /* הגדרת גודל התמונה */
+  height: ;
+  z-index: 1000; /* מוודא שהתמונה תופיע מעל כל תוכן אחר */
+}
+
+
     </style>
 </head>
 <body>
@@ -109,18 +131,26 @@
             'http://www.haaretz.co.il/cmlink/1.1470869',
             'https://rcs.mako.co.il/rss/31750a2610f26110VgnVCM1000005201000aRCRD.xml',
             'https://rss.walla.co.il/feed/1?type=main',
-            'https://www.inn.co.il/Rss.aspx?act=0.1',
+            'www.inn.co.il/Rss.aspx',
             'https://www.maariv.co.il/Rss/RssChadashot',
             'https://www.calcalist.co.il/GeneralRSS/0,16335,L-8,00.xml',
-            'http://www.themarker.com/cmlink/1.144',
+            'https://www.themarker.com/srv/tm-all-articles',
             'https://www.globes.co.il/webservice/rss/rssfeeder.asmx/FeederNode?iID=2',
             'https://www.ha-makom.co.il/feed/',
             'https://www.haaretz.co.il/srv/htz---all-articles',
             'https://rss.nytimes.com/services/xml/rss/nyt/MiddleEast.xml',
-            'https://rss.jpost.com/rss/rssfeedsfrontpage.aspx'
+            'https://rss.jpost.com/rss/rssfeedsfrontpage.aspx',
+'https://www.gov.il/he/api/NewsApi/rss/e744bba9-d17e-429f-abc3-50f7a8a55667',
+'https://www.gov.il/he/api/NewsApi/rss/f41159c1-7867-41c3-bc0a-cbfe0da1bb1a',
+'https://www.gov.il/he/api/NewsApi/rss/104cb0f4-d65a-4692-b590-94af928c19c0'
+
         ];
 
-        const TICKER_RSS = 'https://ch2rss.fflow.net/N12chat';
+        const TICKER_RSS = [
+            { url: 'https://ch2rss.fflow.net/N12chat', name: 'חדשות 12' },
+            { url: 'https://www.ynet.co.il/Integration/StoryRss1854.xml', name: 'Ynet' },
+            { url: 'https://rss.walla.co.il/feed/22', name: 'וואלה!' }
+        ];
 
         let allNews = [];
         let tickerNews = [];
@@ -134,17 +164,22 @@
         function updateNews() {
             Promise.all(RSS_SOURCES.map(fetchRSS))
                 .then(results => {
-                    allNews = results.flat().sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate)).slice(0, 20);
+                    allNews = results.flat().sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate)).slice(0, 40);
                     displayNews(0);
                 });
         }
 
         function updateTicker() {
-            fetchRSS(TICKER_RSS)
-                .then(items => {
-                    tickerNews = items.slice(0, 20);
-                    displayTicker();
-                });
+
+            Promise.all(TICKER_RSS.map(source => 
+                fetchRSS(source.url).then(items => 
+                    items.map(item => ({ ...item, source: source.name }))
+                )
+            ))
+            .then(results => {
+                tickerNews = results.flat().sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate)).slice(0, 20);
+                displayTicker();
+            });
         }
 
         function displayNews(index) {
@@ -156,8 +191,22 @@
         }
 
         function displayTicker() {
-            const tickerContent = tickerNews.map(item => item.title).join(' | ');
-            document.getElementById('ticker-content').textContent = tickerContent + ' | ' + tickerContent;
+            const tickerContent = tickerNews.map(item => 
+                `<span class="ticker-item">
+                    <span class="ticker-source">${item.source}</span>
+                    <span class="ticker-time">פורסם לפני ${moment(item.pubDate).fromNow()}</span>
+                    ${item.title}
+                </span>`
+            ).join('');
+            document.getElementById('ticker-content').innerHTML = tickerContent + tickerContent;
+        }
+
+        function updateTickerTimes() {
+            const tickerItems = document.querySelectorAll('.ticker-item');
+            tickerItems.forEach((item, index) => {
+                const newsItem = tickerNews[index % tickerNews.length];
+                item.querySelector('.ticker-time').textContent = `פורסם לפני ${moment(newsItem.pubDate).fromNow()}`;
+            });
         }
 
         let currentIndex = 0;
@@ -168,8 +217,14 @@
 
         updateNews();
         updateTicker();
-        setInterval(updateNews, 60000);
-        setInterval(updateTicker, 60000);
+        setInterval(updateNews, 40000);
+        setInterval(updateTicker, 40000);
+        setInterval(updateTickerTimes, 40000);
+
+        moment.locale('he');
     </script>
+
+<img src="https://ibh.co.il/wp-content/uploads/2022/12/logo.png" alt="בן חורין אלכסנדרוביץ" class="fixed-image">
+
 </body>
 </html>
